@@ -704,7 +704,9 @@ const App = () => {
             </ul>
           </div>
           <span className="text-xs text-gray-600 dark:text-gray-400">
-            <p className="mb-2">© 2025 dr_vlat. All rights reserved.</p>
+            <p className="mb-2">
+              © 2025 dr_vlat. This project is licensed under the MIT License.
+            </p>
             This is an independent, non-commercial project and is not affiliated
             with, endorsed by, or sponsored by PreSonus Audio Electronics, Inc
             or Fender Musical Instruments Corporation.
