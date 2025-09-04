@@ -300,6 +300,7 @@ const App = () => {
       }
 
       // Filter out colors that are too dark or too light
+
       const filteredPalette = newPalette.filter((color) => {
         const [h, s, l] = rgbToHsl(...color);
         return l > 0.1 && l < 0.95;
@@ -346,46 +347,86 @@ const App = () => {
   // Helper for generating color variations (shades and tints)
   const generateColorVariations = (baseColor, numVariations) => {
     const variations = [];
-    const [h, s] = rgbToHsl(...baseColor);
+    const [baseH, baseS] = rgbToHsl(...baseColor);
     for (let i = 0; i < numVariations; i++) {
       const varL = 0.1 + (0.8 * i) / (numVariations - 1);
-      variations.push(hslToRgb(h, s, varL));
+      const varH = (baseH + (Math.random() - 0.5) * 0.05) % 1; // ±3° hue jitter
+      const varS = Math.min(
+        1,
+        Math.max(0, baseS + (Math.random() - 0.5) * 0.1)
+      ); // ±10% sat
+      variations.push(hslToRgb(varH, varS, varL));
     }
-    // Changed from ascending to descending lightness
     return variations.sort((a, b) => rgbToHsl(...b)[2] - rgbToHsl(...a)[2]);
   };
 
   // Simple pixel averaging to get a representative color from a group
+  // const getDominantColor = (pixels) => {
+  //   if (pixels.length === 0) return [0, 0, 0];
+  //   const sum = pixels.reduce(
+  //     (acc, p) => [acc[0] + p[0], acc[1] + p[1], acc[2] + p[2]],
+  //     [0, 0, 0]
+  //   );
+  //   return [
+  //     Math.round(sum[0] / pixels.length),
+  //     Math.round(sum[1] / pixels.length),
+  //     Math.round(sum[2] / pixels.length),
+  //   ];
+  // };
   const getDominantColor = (pixels) => {
     if (pixels.length === 0) return [0, 0, 0];
-    const sum = pixels.reduce(
-      (acc, p) => [acc[0] + p[0], acc[1] + p[1], acc[2] + p[2]],
-      [0, 0, 0]
-    );
-    return [
-      Math.round(sum[0] / pixels.length),
-      Math.round(sum[1] / pixels.length),
-      Math.round(sum[2] / pixels.length),
-    ];
+    const rVals = pixels.map((p) => p[0]).sort((a, b) => a - b);
+    const gVals = pixels.map((p) => p[1]).sort((a, b) => a - b);
+    const bVals = pixels.map((p) => p[2]).sort((a, b) => a - b);
+    const mid = Math.floor(pixels.length / 2);
+    return [rVals[mid], gVals[mid], bVals[mid]];
   };
 
   // Gets a list of dominant colors for the complementary method
   const getDominantColors = (pixels, count) => {
-    // Simplified clustering by sampling and bucketing
+    // Quantize colors to group similar shades, then find the most frequent groups.
     const colorMap = {};
+    const quantizationShift = 4; // Shift bits right by 4 (8-bit -> 4-bit per channel)
+
+    // Sample pixels for performance
     for (let i = 0; i < pixels.length; i += 10) {
-      // Sample every 10th pixel
       const [r, g, b] = pixels[i];
-      const hex = rgbToHex(r, g, b);
-      colorMap[hex] = (colorMap[hex] || 0) + 1;
+
+      // Quantize each channel
+      const r_q = r >> quantizationShift;
+      const g_q = g >> quantizationShift;
+      const b_q = b >> quantizationShift;
+
+      // Create a key from the quantized values
+      const key = (r_q << 8) | (g_q << 4) | b_q;
+
+      if (!colorMap[key]) {
+        colorMap[key] = {
+          count: 0,
+          r_sum: 0,
+          g_sum: 0,
+          b_sum: 0,
+        };
+      }
+
+      // Store the sum of the original colors and the count for later averaging
+      colorMap[key].count++;
+      colorMap[key].r_sum += r;
+      colorMap[key].g_sum += g;
+      colorMap[key].b_sum += b;
     }
-    const sorted = Object.entries(colorMap).sort((a, b) => b[1] - a[1]);
-    return sorted.slice(0, count).map((entry) => {
-      const hex = entry[0].slice(1);
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      return [r, g, b];
+
+    // Sort the color groups by the number of pixels they contain
+    const sortedColorGroups = Object.values(colorMap).sort(
+      (a, b) => b.count - a.count
+    );
+
+    // Calculate the average color for the most dominant groups
+    return sortedColorGroups.slice(0, count).map((group) => {
+      const r_avg = Math.round(group.r_sum / group.count);
+      const g_avg = Math.round(group.g_sum / group.count);
+      const b_avg = Math.round(group.b_sum / group.count);
+      return [r_avg, g_avg, b_avg];
     });
   };
 
@@ -452,7 +493,7 @@ const App = () => {
       <div className="w-full max-w-4xl p-6 bg-white rounded-xl shadow-lg dark:bg-gray-800 dark:shadow-xl transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            S1 Color Palette Generator v0.1.3
+            S1 Color Palette Generator v0.1.4
           </h1>
         </div>
 
@@ -505,7 +546,66 @@ const App = () => {
             </h2>
 
             {/* Palette Controls */}
-            <div className="flex flex-wrap justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+            <div className="flex flex-wrap justify-center items-start space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+              <div className="flex flex-col w-full sm:w-auto">
+                <label
+                  htmlFor="method"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  <Hint
+                    label="Extraction Method"
+                    text="This determines how the app finds color clusters in your photo. Categorical creates a palette by sampling from different color families (e.g., reds, blues, greens), while Complementary finds the most dominant colors and then generates a palette with their complements. Feel free to experiment with both to see which one you like best."
+                  />
+                </label>
+                <select
+                  id="method"
+                  value={extractionMethod}
+                  onChange={(e) => setExtractionMethod(e.target.value)}
+                  className="p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 w-full bg-white dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
+                >
+                  <option value="categorical">Categorical</option>
+                  <option value="complementary">Complementary</option>
+                </select>
+              </div>
+
+              <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
+                →
+              </div>
+
+              <div className="flex flex-col w-full sm:w-auto">
+                <label
+                  htmlFor="colorsPerHue"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  <Hint
+                    label="Colors per group"
+                    text="Use this slider to set the number of colors generated for each extracted color group. For example, if you choose Categorical, this will be the number of shades and tints generated for each hue (3 to 20)."
+                  />
+                </label>
+                <input
+                  id="colorsPerHue"
+                  type="range"
+                  min="3"
+                  max="20"
+                  value={colorsPerHue}
+                  onChange={(e) => setColorsPerHue(Number(e.target.value))}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                  style={{
+                    "--tw-shadow-color": "0 0 0 #fff",
+                    "--tw-ring-offset-shadow": "0 0 0 #fff",
+                    "--tw-ring-shadow": "0 0 0 #fff",
+                    "--webkit-slider-thumb": "bg-blue-600",
+                  }}
+                />
+                <span className="text-xs mt-3 text-gray-500 dark:text-gray-400 text-center">
+                  {colorsPerHue} colors
+                </span>
+              </div>
+
+              <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
+                →
+              </div>
+
               <div className="flex flex-col w-full sm:w-auto">
                 <label
                   htmlFor="harmonize"
@@ -531,46 +631,8 @@ const App = () => {
                 </select>
               </div>
 
-              <div className="flex flex-col w-full sm:w-auto">
-                <label
-                  htmlFor="method"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  <Hint
-                    label="Extraction Method"
-                    text="This determines how the app finds color clusters in your photo. Categorical creates a palette by sampling from different color families (e.g., reds, blues, greens), while Complementary finds the most dominant colors and then generates a palette with their complements. Feel free to experiment with both to see which one you like best."
-                  />
-                </label>
-                <select
-                  id="method"
-                  value={extractionMethod}
-                  onChange={(e) => setExtractionMethod(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 w-full bg-white dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
-                >
-                  <option value="categorical">Categorical</option>
-                  <option value="complementary">Complementary</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col w-full sm:w-auto">
-                <label
-                  htmlFor="colorsPerHue"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  <Hint
-                    label="Colors per group"
-                    text="This is the number of colors the app will attempt to generate for each extracted color group. For example, if you choose Categorical, this will be the number of shades and tints generated for each hue."
-                  />
-                </label>
-                <input
-                  id="colorsPerHue"
-                  type="number"
-                  min="2"
-                  max="20"
-                  value={colorsPerHue}
-                  onChange={(e) => setColorsPerHue(Number(e.target.value))}
-                  className="p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 w-full text-center bg-white dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
-                />
+              <div className="hidden sm:flex items-center  text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
+                →
               </div>
 
               <div className="flex flex-col w-full sm:w-auto">
@@ -600,7 +662,7 @@ const App = () => {
                     "--webkit-slider-thumb": "bg-blue-600",
                   }}
                 />
-                <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                <span className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center">
                   {similarityThreshold} (0=strict, 30=loose)
                 </span>
               </div>
