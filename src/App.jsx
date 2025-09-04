@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 
-// Helper functions for color conversions
+// Improved color conversion functions
 const rgbToHex = (r, g, b) => {
   const toHex = (c) => `0${c.toString(16)}`.slice(-2);
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
 };
 
 const rgbToHsl = (r, g, b) => {
@@ -59,6 +59,89 @@ const hslToRgb = (h, s, l) => {
   return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 };
 
+const rgbToHsv = (r, g, b) => {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let h,
+    s,
+    v = max;
+
+  if (max === 0) {
+    s = 0;
+  } else {
+    s = d / max;
+  }
+
+  if (max === min) {
+    h = 0;
+  } else {
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+    h /= 6;
+  }
+
+  return [h, s, v];
+};
+
+const hsvToRgb = (h, s, v) => {
+  let r, g, b;
+
+  const i = Math.floor(h * 6);
+  const f = h * 6 - i;
+  const p = v * (1 - s);
+  const q = v * (1 - f * s);
+  const t = v * (1 - (1 - f) * s);
+
+  switch (i % 6) {
+    case 0:
+      r = v;
+      g = t;
+      b = p;
+      break;
+    case 1:
+      r = q;
+      g = v;
+      b = p;
+      break;
+    case 2:
+      r = p;
+      g = v;
+      b = t;
+      break;
+    case 3:
+      r = p;
+      g = q;
+      b = v;
+      break;
+    case 4:
+      r = t;
+      g = p;
+      b = v;
+      break;
+    case 5:
+      r = v;
+      g = p;
+      b = q;
+      break;
+  }
+
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+};
+
 const harmonizeColors = (colors, model) => {
   const models = {
     "70s": {
@@ -101,9 +184,31 @@ const harmonizeColors = (colors, model) => {
       l_range: [0.7, 0.95],
       s_range: [0.2, 0.6],
     },
+    earthy: {
+      l_mult: 0.9,
+      s_mult: 0.7,
+      l_shift: 0.0,
+      s_shift: -0.1,
+      l_range: [0.2, 0.6],
+      s_range: [0.3, 0.7],
+    },
+    jewel: {
+      l_mult: 0.8,
+      s_mult: 1.2,
+      l_shift: 0.0,
+      s_shift: 0.1,
+      l_range: [0.3, 0.7],
+      s_range: [0.8, 1.0],
+    },
+    none: {
+      l_mult: 1.0,
+      s_mult: 1.0,
+      l_shift: 0.0,
+      s_shift: 0.0,
+    },
   };
 
-  const params = models[model] || {};
+  const params = models[model] || models.none;
 
   return colors.map((color) => {
     let [h, s, l] = rgbToHsl(...color);
@@ -123,57 +228,280 @@ const harmonizeColors = (colors, model) => {
   });
 };
 
-// Convert RGB to LAB color space for perceptual distance calculation
 const rgbToLab = (r, g, b) => {
-  // Convert RGB to XYZ
-  let [x, y, z] = [r, g, b].map((c) => {
-    c = c / 255;
-    c = c > 0.04045 ? Math.pow((c + 0.055) / 1.055, 2.4) : c / 12.92;
-    return c * 100;
-  });
+  let x = r / 255;
+  let y = g / 255;
+  let z = b / 255;
 
-  // Observer = 2°, Illuminant = D65
-  x = x * 0.4124 + y * 0.3576 + z * 0.1805;
-  y = x * 0.2126 + y * 0.7152 + z * 0.0722;
-  z = x * 0.0193 + y * 0.1192 + z * 0.9505;
+  x = x > 0.04045 ? Math.pow((x + 0.055) / 1.055, 2.4) : x / 12.92;
+  y = y > 0.04045 ? Math.pow((y + 0.055) / 1.055, 2.4) : y / 12.92;
+  z = z > 0.04045 ? Math.pow((z + 0.055) / 1.055, 2.4) : z / 12.92;
 
-  // Convert XYZ to LAB
-  [x, y, z] = [x / 95.047, y / 100.0, z / 108.883].map((c) =>
-    c > 0.008856 ? Math.pow(c, 1 / 3) : 7.787 * c + 16 / 116
-  );
+  x *= 100;
+  y *= 100;
+  z *= 100;
+
+  let X = x * 0.4124 + y * 0.3576 + z * 0.1805;
+  let Y = x * 0.2126 + y * 0.7152 + z * 0.0722;
+  let Z = x * 0.0193 + y * 0.1192 + z * 0.9505;
+
+  X /= 95.047;
+  Y /= 100.0;
+  Z /= 108.883;
+
+  X = X > 0.008856 ? Math.pow(X, 1 / 3) : 7.787 * X + 16 / 116;
+  Y = Y > 0.008856 ? Math.pow(Y, 1 / 3) : 7.787 * Y + 16 / 116;
+  Z = Z > 0.008856 ? Math.pow(Z, 1 / 3) : 7.787 * Z + 16 / 116;
 
   return [
-    116 * y - 16, // L
-    500 * (x - y), // A
-    200 * (y - z), // B
+    116 * Y - 16, // L
+    500 * (X - Y), // A
+    200 * (Y - Z), // B
   ];
 };
 
-// Calculate Delta E (CIE76) - perceptual color difference
 const deltaE = (color1, color2) => {
-  const [l1, a1, b1] = rgbToLab(...color1);
-  const [l2, a2, b2] = rgbToLab(...color2);
+  const [L1, a1, b1] = rgbToLab(...color1);
+  const [L2, a2, b2] = rgbToLab(...color2);
   return Math.sqrt(
-    Math.pow(l2 - l1, 2) + Math.pow(a2 - a1, 2) + Math.pow(b2 - b1, 2)
+    Math.pow(L2 - L1, 2) + Math.pow(a2 - a1, 2) + Math.pow(b2 - b1, 2)
   );
 };
 
-// Filter out visually similar colors
 const filterSimilarColors = (colors, threshold = 10) => {
-  const filtered = [];
-  for (const color of colors) {
-    const isSimilar = filtered.some(
-      (existingColor) => deltaE(color, existingColor) < threshold
-    );
+  if (colors.length <= 1) return colors;
+
+  const filtered = [colors[0]];
+
+  for (let i = 1; i < colors.length; i++) {
+    const color = colors[i];
+    let isSimilar = false;
+
+    for (let j = 0; j < filtered.length; j++) {
+      const existingColor = filtered[j];
+      const difference = deltaE(color, existingColor);
+
+      if (difference < threshold) {
+        isSimilar = true;
+        break;
+      }
+    }
 
     if (!isSimilar) {
       filtered.push(color);
     }
   }
+
   return filtered;
 };
 
-// New Hint component
+const getMedianColor = (pixels) => {
+  if (pixels.length === 0) return [0, 0, 0];
+
+  const rVals = pixels.map((p) => p[0]).sort((a, b) => a - b);
+  const gVals = pixels.map((p) => p[1]).sort((a, b) => a - b);
+  const bVals = pixels.map((p) => p[2]).sort((a, b) => a - b);
+
+  const mid = Math.floor(pixels.length / 2);
+  return [rVals[mid], gVals[mid], bVals[mid]];
+};
+
+const kMeansClustering = (pixels, k, maxIterations = 10, sampleSize = 1000) => {
+  if (pixels.length === 0 || k === 0) return [];
+
+  // Sample a subset of pixels to reduce computation
+  const sampledPixels =
+    pixels.length > sampleSize
+      ? Array.from(
+          { length: sampleSize },
+          () => pixels[Math.floor(Math.random() * pixels.length)]
+        )
+      : pixels;
+
+  // Initialize centroids with k-means++ algorithm
+  let centroids = [
+    sampledPixels[Math.floor(Math.random() * sampledPixels.length)],
+  ];
+
+  for (let i = 1; i < k; i++) {
+    let distances = [];
+    let totalDistance = 0;
+
+    for (const pixel of sampledPixels) {
+      let minDistance = Infinity;
+
+      for (const centroid of centroids) {
+        const distance = deltaE(pixel, centroid);
+        minDistance = Math.min(minDistance, distance);
+      }
+
+      distances.push(minDistance);
+      totalDistance += minDistance;
+    }
+
+    let randomValue = Math.random() * totalDistance;
+    let cumulativeDistance = 0;
+
+    for (let j = 0; j < distances.length; j++) {
+      cumulativeDistance += distances[j];
+      if (cumulativeDistance >= randomValue) {
+        centroids.push(sampledPixels[j]);
+        break;
+      }
+    }
+  }
+
+  // Perform k-means iterations with timeout
+  const startTime = performance.now();
+  const timeoutMs = 5000; // 5 seconds timeout
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    if (performance.now() - startTime > timeoutMs) {
+      console.warn(
+        "kMeansClustering timed out after 5 seconds. Returning current centroids."
+      );
+      return centroids;
+    }
+
+    const clusters = Array.from({ length: k }, () => []);
+
+    for (const pixel of sampledPixels) {
+      let minDistance = Infinity;
+      let clusterIndex = 0;
+
+      for (let i = 0; i < centroids.length; i++) {
+        const distance = deltaE(pixel, centroids[i]);
+        if (distance < minDistance) {
+          minDistance = distance;
+          clusterIndex = i;
+        }
+      }
+
+      clusters[clusterIndex].push(pixel);
+    }
+
+    let changed = false;
+    for (let i = 0; i < k; i++) {
+      if (clusters[i].length === 0) continue;
+
+      const newCentroid = getMedianColor(clusters[i]);
+      const oldCentroid = centroids[i];
+
+      if (deltaE(newCentroid, oldCentroid) > 1) {
+        centroids[i] = newCentroid;
+        changed = true;
+      }
+    }
+
+    if (!changed) break;
+  }
+
+  return centroids;
+};
+
+const getDominantColors = (pixels, count) => {
+  if (pixels.length < count) {
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      result.push(
+        pixels[Math.floor(Math.random() * pixels.length)] || [0, 0, 0]
+      );
+    }
+    return result;
+  }
+
+  return kMeansClustering(pixels, count, 10, 1000);
+};
+
+const generateColorVariations = (baseColor, numVariations) => {
+  const variations = [];
+  const [baseH, baseS, baseL] = rgbToHsl(...baseColor);
+
+  for (let i = 0; i < numVariations; i++) {
+    const t = i / (numVariations - 1);
+    const varL = 0.15 + 0.7 * t;
+    const varH = (baseH + (Math.random() - 0.5) * 0.05) % 1;
+    const varS = Math.min(1, Math.max(0, baseS + (Math.random() - 0.5) * 0.1));
+    variations.push(hslToRgb(varH, varS, varL));
+  }
+
+  return variations.sort((a, b) => {
+    const [, , l1] = rgbToHsl(...a);
+    const [, , l2] = rgbToHsl(...b);
+    return l2 - l1;
+  });
+};
+
+const generateComplementaryPalette = (baseColor, numVariations) => {
+  const [h, s, l] = rgbToHsl(...baseColor);
+  const compH = (h + 0.5) % 1.0;
+
+  const baseVariations = generateColorVariations(
+    baseColor,
+    Math.ceil(numVariations / 2)
+  );
+  const compVariations = generateColorVariations(
+    hslToRgb(compH, s, l),
+    Math.floor(numVariations / 2)
+  );
+
+  return [...baseVariations, ...compVariations];
+};
+
+const generateTriadicPalette = (baseColor, numVariations) => {
+  const [h, s, l] = rgbToHsl(...baseColor);
+  const triadH1 = (h + 1 / 3) % 1.0;
+  const triadH2 = (h + 2 / 3) % 1.0;
+
+  const baseCount = Math.ceil(numVariations / 3);
+  const triad1Count = Math.floor((numVariations - baseCount) / 2);
+  const triad2Count = numVariations - baseCount - triad1Count;
+
+  const baseVariations = generateColorVariations(baseColor, baseCount);
+  const triad1Variations = generateColorVariations(
+    hslToRgb(triadH1, s, l),
+    triad1Count
+  );
+  const triad2Variations = generateColorVariations(
+    hslToRgb(triadH2, s, l),
+    triad2Count
+  );
+
+  return [...baseVariations, ...triad1Variations, ...triad2Variations];
+};
+
+const generateAnalogousPalette = (baseColor, numVariations) => {
+  const [h, s, l] = rgbToHsl(...baseColor);
+  const analogousRange = 0.08;
+
+  const variations = [];
+  for (let i = 0; i < numVariations; i++) {
+    const t = i / (numVariations - 1);
+    const varH = (h + analogousRange * (t - 0.5)) % 1;
+    const varL = 0.15 + 0.7 * t;
+    variations.push(hslToRgb(varH, s, varL));
+  }
+
+  return variations.sort((a, b) => {
+    const [, , l1] = rgbToHsl(...a);
+    const [, , l2] = rgbToHsl(...b);
+    return l2 - l1;
+  });
+};
+
+const generateMonochromaticPalette = (baseColor, numVariations) => {
+  const [h, s] = rgbToHsl(...baseColor);
+
+  const variations = [];
+  for (let i = 0; i < numVariations; i++) {
+    const t = i / (numVariations - 1);
+    const varL = 0.15 + 0.7 * t;
+    variations.push(hslToRgb(h, s, varL));
+  }
+
+  return variations;
+};
+
 const Hint = ({ label, text }) => (
   <div className="relative inline-block group">
     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -193,19 +521,19 @@ const Hint = ({ label, text }) => (
 );
 
 const App = () => {
-  // State variables
   const [imageSrc, setImageSrc] = useState(null);
   const [palette, setPalette] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [colorsPerHue, setColorsPerHue] = useState(20);
+  const [colorsPerHue, setColorsPerHue] = useState(10);
   const [harmonizeModel, setHarmonizeModel] = useState("none");
   const [extractionMethod, setExtractionMethod] = useState("categorical");
   const [dominantColorCount, setDominantColorCount] = useState(3);
   const [isDragging, setIsDragging] = useState(false);
-  const [similarityThreshold, setSimilarityThreshold] = useState(10);
+  const [similarityThreshold, setSimilarityThreshold] = useState(15);
+  const [paletteType, setPaletteType] = useState("complementary");
+  const [showColorValues, setShowColorValues] = useState(true);
   const imageRef = useRef(null);
 
-  // Define color categories for hue-based extraction
   const categories = {
     red: [
       [0.0, 0.0833],
@@ -218,7 +546,6 @@ const App = () => {
     purple: [[0.75, 0.9167]],
   };
 
-  // Effect to apply the 'dark' class based on system theme preference
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -226,16 +553,16 @@ const App = () => {
       document.documentElement.classList.toggle("dark", e.matches);
     };
 
-    applySystemTheme(mediaQuery); // Apply initial theme
-    mediaQuery.addEventListener("change", applySystemTheme); // Listen for changes
+    applySystemTheme(mediaQuery);
+    mediaQuery.addEventListener("change", applySystemTheme);
 
     return () => mediaQuery.removeEventListener("change", applySystemTheme);
   }, []);
 
-  // Main effect hook to process the image and generate the palette
   useEffect(() => {
     if (!imageSrc) {
       setPalette([]);
+      setIsLoading(false);
       return;
     }
 
@@ -245,7 +572,7 @@ const App = () => {
     img.onload = () => {
       const tempCanvas = document.createElement("canvas");
       const tempCtx = tempCanvas.getContext("2d");
-      const maxDim = 150;
+      const maxDim = 100; // Reduced for faster processing
       const ratio = Math.min(maxDim / img.width, maxDim / img.height);
       tempCanvas.width = img.width * ratio;
       tempCanvas.height = img.height * ratio;
@@ -280,18 +607,73 @@ const App = () => {
             return rangePairs.some(([low, high]) => h >= low && h < high);
           });
           if (catPixels.length > 0) {
-            const dominant = getDominantColor(catPixels);
-            const variations = generateColorVariations(dominant, colorsPerHue);
+            const dominant = getMedianColor(catPixels);
+            let variations = [];
+
+            switch (paletteType) {
+              case "complementary":
+                variations = generateComplementaryPalette(
+                  dominant,
+                  colorsPerHue
+                );
+                break;
+              case "triadic":
+                variations = generateTriadicPalette(dominant, colorsPerHue);
+                break;
+              case "analogous":
+                variations = generateAnalogousPalette(dominant, colorsPerHue);
+                break;
+              case "monochromatic":
+                variations = generateMonochromaticPalette(
+                  dominant,
+                  colorsPerHue
+                );
+                break;
+              default:
+                variations = generateColorVariations(dominant, colorsPerHue);
+            }
+
             newPalette.push(...variations);
           }
         });
       } else {
-        // Complementary
         const dominantColors = getDominantColors(allPixels, dominantColorCount);
         dominantColors.forEach((color) => {
-          newPalette.push(
-            ...generateComplementaryPalette(color, Math.floor(colorsPerHue / 2))
-          );
+          let variations = [];
+
+          switch (paletteType) {
+            case "complementary":
+              variations = generateComplementaryPalette(
+                color,
+                Math.floor(colorsPerHue / dominantColorCount)
+              );
+              break;
+            case "triadic":
+              variations = generateTriadicPalette(
+                color,
+                Math.floor(colorsPerHue / dominantColorCount)
+              );
+              break;
+            case "analogous":
+              variations = generateAnalogousPalette(
+                color,
+                Math.floor(colorsPerHue / dominantColorCount)
+              );
+              break;
+            case "monochromatic":
+              variations = generateMonochromaticPalette(
+                color,
+                Math.floor(colorsPerHue / dominantColorCount)
+              );
+              break;
+            default:
+              variations = generateColorVariations(
+                color,
+                Math.floor(colorsPerHue / dominantColorCount)
+              );
+          }
+
+          newPalette.push(...variations);
         });
       }
 
@@ -299,25 +681,25 @@ const App = () => {
         newPalette = harmonizeColors(newPalette, harmonizeModel);
       }
 
-      // Filter out colors that are too dark or too light
-
       const filteredPalette = newPalette.filter((color) => {
         const [h, s, l] = rgbToHsl(...color);
-        return l > 0.1 && l < 0.95;
+        return l > 0.1 && l < 0.95 && s > 0.1;
       });
 
-      // Filter out visually similar colors
       const similarityFiltered = filterSimilarColors(
         filteredPalette,
         similarityThreshold
       );
 
-      // Remove duplicate colors
       const uniqueColors = Array.from(
         new Set(similarityFiltered.map(JSON.stringify))
       ).map(JSON.parse);
 
       setPalette(uniqueColors);
+      setIsLoading(false);
+    };
+    img.onerror = () => {
+      console.error("Failed to load image");
       setIsLoading(false);
     };
     img.src = imageSrc;
@@ -328,109 +710,9 @@ const App = () => {
     extractionMethod,
     dominantColorCount,
     similarityThreshold,
+    paletteType,
   ]);
 
-  // Helper for generating complementary palettes
-  const generateComplementaryPalette = (baseColor, numVariations) => {
-    const [h, s, l] = rgbToHsl(...baseColor);
-    const compH = (h + 0.5) % 1.0;
-    const [compR, compG, compB] = hslToRgb(compH, s, l);
-    const complementaryColor = [compR, compG, compB];
-    const baseVariations = generateColorVariations(baseColor, numVariations);
-    const compVariations = generateColorVariations(
-      complementaryColor,
-      numVariations
-    );
-    return [...baseVariations, ...compVariations];
-  };
-
-  // Helper for generating color variations (shades and tints)
-  const generateColorVariations = (baseColor, numVariations) => {
-    const variations = [];
-    const [baseH, baseS] = rgbToHsl(...baseColor);
-    for (let i = 0; i < numVariations; i++) {
-      const varL = 0.1 + (0.8 * i) / (numVariations - 1);
-      const varH = (baseH + (Math.random() - 0.5) * 0.05) % 1; // ±3° hue jitter
-      const varS = Math.min(
-        1,
-        Math.max(0, baseS + (Math.random() - 0.5) * 0.1)
-      ); // ±10% sat
-      variations.push(hslToRgb(varH, varS, varL));
-    }
-    return variations.sort((a, b) => rgbToHsl(...b)[2] - rgbToHsl(...a)[2]);
-  };
-
-  // Simple pixel averaging to get a representative color from a group
-  // const getDominantColor = (pixels) => {
-  //   if (pixels.length === 0) return [0, 0, 0];
-  //   const sum = pixels.reduce(
-  //     (acc, p) => [acc[0] + p[0], acc[1] + p[1], acc[2] + p[2]],
-  //     [0, 0, 0]
-  //   );
-  //   return [
-  //     Math.round(sum[0] / pixels.length),
-  //     Math.round(sum[1] / pixels.length),
-  //     Math.round(sum[2] / pixels.length),
-  //   ];
-  // };
-  const getDominantColor = (pixels) => {
-    if (pixels.length === 0) return [0, 0, 0];
-    const rVals = pixels.map((p) => p[0]).sort((a, b) => a - b);
-    const gVals = pixels.map((p) => p[1]).sort((a, b) => a - b);
-    const bVals = pixels.map((p) => p[2]).sort((a, b) => a - b);
-    const mid = Math.floor(pixels.length / 2);
-    return [rVals[mid], gVals[mid], bVals[mid]];
-  };
-
-  // Gets a list of dominant colors for the complementary method
-  const getDominantColors = (pixels, count) => {
-    // Quantize colors to group similar shades, then find the most frequent groups.
-    const colorMap = {};
-    const quantizationShift = 4; // Shift bits right by 4 (8-bit -> 4-bit per channel)
-
-    // Sample pixels for performance
-    for (let i = 0; i < pixels.length; i += 10) {
-      const [r, g, b] = pixels[i];
-
-      // Quantize each channel
-      const r_q = r >> quantizationShift;
-      const g_q = g >> quantizationShift;
-      const b_q = b >> quantizationShift;
-
-      // Create a key from the quantized values
-      const key = (r_q << 8) | (g_q << 4) | b_q;
-
-      if (!colorMap[key]) {
-        colorMap[key] = {
-          count: 0,
-          r_sum: 0,
-          g_sum: 0,
-          b_sum: 0,
-        };
-      }
-
-      // Store the sum of the original colors and the count for later averaging
-      colorMap[key].count++;
-      colorMap[key].r_sum += r;
-      colorMap[key].g_sum += g;
-      colorMap[key].b_sum += b;
-    }
-
-    // Sort the color groups by the number of pixels they contain
-    const sortedColorGroups = Object.values(colorMap).sort(
-      (a, b) => b.count - a.count
-    );
-
-    // Calculate the average color for the most dominant groups
-    return sortedColorGroups.slice(0, count).map((group) => {
-      const r_avg = Math.round(group.r_sum / group.count);
-      const g_avg = Math.round(group.g_sum / group.count);
-      const b_avg = Math.round(group.b_sum / group.count);
-      return [r_avg, g_avg, b_avg];
-    });
-  };
-
-  // Handle file upload
   const handleFile = (file) => {
     if (file && file.type.startsWith("image/")) {
       const reader = new FileReader();
@@ -459,7 +741,6 @@ const App = () => {
     handleFile(file);
   };
 
-  // Function to export the palette as a JSON file
   const handleExport = () => {
     if (palette.length === 0) {
       console.log("No palette to export.");
@@ -468,7 +749,6 @@ const App = () => {
 
     const formatColor = (r, g, b) => {
       const toHex = (c) => `0${c.toString(16)}`.slice(-2).toUpperCase();
-      // Original format is FF BGR
       return `FF${toHex(b)}${toHex(g)}${toHex(r)}`;
     };
 
@@ -488,16 +768,29 @@ const App = () => {
     URL.revokeObjectURL(url);
   };
 
+  const copyToClipboard = (color) => {
+    const hexCode = rgbToHex(...color);
+    navigator.clipboard.writeText(hexCode).then(() => {
+      const button = document.getElementById(`color-${hexCode}`);
+      if (button) {
+        const originalText = button.textContent;
+        button.textContent = "Copied!";
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 1500);
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4 font-sans text-gray-800 dark:bg-gray-900 dark:text-gray-200 transition-colors duration-300">
-      <div className="w-full max-w-4xl p-6 bg-white rounded-xl shadow-lg dark:bg-gray-800 dark:shadow-xl transition-colors duration-300">
+      <div className="w-full max-w-6xl p-6 bg-white rounded-xl shadow-lg dark:bg-gray-800 dark:shadow-xl transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            S1 Color Palette Generator v0.1.4
+            S1 Color Palette Generator v0.2.0
           </h1>
         </div>
 
-        {/* Image Preview and Palette Display Section */}
         <div className="flex flex-col space-y-6">
           <div
             className={`w-full flex flex-col items-center justify-center bg-gray-50 rounded-lg border-2 ${
@@ -514,7 +807,7 @@ const App = () => {
                 ref={imageRef}
                 src={imageSrc}
                 alt="Uploaded"
-                className="max-w-full h-auto rounded-lg shadow-md"
+                className="max-w-full h-auto rounded-lg shadow-md max-h-64"
               />
             ) : (
               <div className="text-center text-gray-500 dark:text-gray-400 p-4">
@@ -545,9 +838,8 @@ const App = () => {
               Generated Palette
             </h2>
 
-            {/* Palette Controls */}
-            <div className="flex flex-wrap justify-center items-start space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
-              <div className="flex flex-col w-full sm:w-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 w-full">
+              <div className="flex flex-col">
                 <label
                   htmlFor="method"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -568,11 +860,31 @@ const App = () => {
                 </select>
               </div>
 
-              <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
-                →
+              <div className="flex flex-col">
+                <label
+                  htmlFor="paletteType"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  <Hint
+                    label="Palette Type"
+                    text="Choose the color harmony scheme for your palette. Complementary uses opposite colors, Triadic uses three evenly spaced colors, Analogous uses adjacent colors, and Monochromatic uses variations of a single hue."
+                  />
+                </label>
+                <select
+                  id="paletteType"
+                  value={paletteType}
+                  onChange={(e) => setPaletteType(e.target.value)}
+                  className="p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 w-full bg-white dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
+                >
+                  <option value="complementary">Complementary</option>
+                  <option value="triadic">Triadic</option>
+                  <option value="analogous">Analogous</option>
+                  <option value="monochromatic">Monochromatic</option>
+                  <option value="variations">Simple Variations</option>
+                </select>
               </div>
 
-              <div className="flex flex-col w-full sm:w-auto">
+              <div className="flex flex-col">
                 <label
                   htmlFor="colorsPerHue"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -590,23 +902,13 @@ const App = () => {
                   value={colorsPerHue}
                   onChange={(e) => setColorsPerHue(Number(e.target.value))}
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
-                  style={{
-                    "--tw-shadow-color": "0 0 0 #fff",
-                    "--tw-ring-offset-shadow": "0 0 0 #fff",
-                    "--tw-ring-shadow": "0 0 0 #fff",
-                    "--webkit-slider-thumb": "bg-blue-600",
-                  }}
                 />
                 <span className="text-xs mt-3 text-gray-500 dark:text-gray-400 text-center">
                   {colorsPerHue} colors
                 </span>
               </div>
 
-              <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
-                →
-              </div>
-
-              <div className="flex flex-col w-full sm:w-auto">
+              <div className="flex flex-col">
                 <label
                   htmlFor="harmonize"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -628,14 +930,40 @@ const App = () => {
                   <option value="vibrant">Vibrant</option>
                   <option value="neon">Neon</option>
                   <option value="pastel">Pastel</option>
+                  <option value="earthy">Earthy</option>
+                  <option value="jewel">Jewel Tones</option>
                 </select>
               </div>
 
-              <div className="hidden sm:flex items-center  text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
-                →
-              </div>
+              {extractionMethod === "complementary" && (
+                <div className="flex flex-col">
+                  <label
+                    htmlFor="dominantColorCount"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
+                    <Hint
+                      label="Dominant Colors"
+                      text="Set how many dominant colors to extract from the image. Higher values will create more diverse palettes but may take longer to process."
+                    />
+                  </label>
+                  <input
+                    id="dominantColorCount"
+                    type="range"
+                    min="1"
+                    max="4" // Reduced max to improve performance
+                    value={dominantColorCount}
+                    onChange={(e) =>
+                      setDominantColorCount(Number(e.target.value))
+                    }
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                  />
+                  <span className="text-xs mt-3 text-gray-500 dark:text-gray-400 text-center">
+                    {dominantColorCount} colors
+                  </span>
+                </div>
+              )}
 
-              <div className="flex flex-col w-full sm:w-auto">
+              <div className="flex flex-col">
                 <label
                   htmlFor="similarityThreshold"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -655,16 +983,31 @@ const App = () => {
                     setSimilarityThreshold(Number(e.target.value))
                   }
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
-                  style={{
-                    "--tw-shadow-color": "0 0 0 #fff",
-                    "--tw-ring-offset-shadow": "0 0 0 #fff",
-                    "--tw-ring-shadow": "0 0 0 #fff",
-                    "--webkit-slider-thumb": "bg-blue-600",
-                  }}
                 />
                 <span className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center">
                   {similarityThreshold} (0=strict, 30=loose)
                 </span>
+              </div>
+
+              <div className="flex flex-col">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Display Options
+                </label>
+                <div className="flex items-center mt-1">
+                  <input
+                    id="showColorValues"
+                    type="checkbox"
+                    checked={showColorValues}
+                    onChange={(e) => setShowColorValues(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="showColorValues"
+                    className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+                  >
+                    Show color values
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -715,20 +1058,46 @@ const App = () => {
                 </span>
               </div>
             ) : (
-              <div className="flex flex-wrap justify-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-600 w-full">
+              <div className="flex flex-wrap justify-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-600 w-full">
                 {palette.length > 0 ? (
                   palette.map((color, index) => {
                     const [r, g, b] = color;
-                    const hexCode = rgbToHex(r, g, b).toUpperCase();
+                    const hexCode = rgbToHex(r, g, b);
+                    const textColor =
+                      r * 0.299 + g * 0.587 + b * 0.114 > 150
+                        ? "#000000"
+                        : "#FFFFFF";
+
                     return (
                       <div
                         key={index}
-                        className="w-24 h-24 rounded-lg shadow-md flex items-center justify-center"
+                        className="relative group rounded-lg overflow-hidden shadow-md"
                         style={{
+                          width: "100px",
+                          height: "100px",
                           backgroundColor: hexCode,
-                          border: "1px solid rgba(255, 255, 255, 0.1",
+                          border: "1px solid rgba(255, 255, 255, 0.1)",
                         }}
-                      ></div>
+                      >
+                        {showColorValues && (
+                          <div
+                            className="absolute bottom-0 left-0 right-0 p-1 text-xs text-center font-mono transition-opacity duration-200"
+                            style={{
+                              backgroundColor: "rgba(0, 0, 0, 0.6)",
+                              color: textColor,
+                            }}
+                          >
+                            {hexCode}
+                          </div>
+                        )}
+                        <button
+                          id={`color-${hexCode}`}
+                          onClick={() => copyToClipboard(color)}
+                          className="absolute top-1 right-1 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        >
+                          Copy
+                        </button>
+                      </div>
                     );
                   })
                 ) : (
