@@ -1,12 +1,15 @@
-# React + Vite
+# S1 Color Palette Generator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React-based web application for generating color palettes from images, tailored for use with PreSonus Studio One. The tool extracts colors from uploaded images, applies harmonization models, and exports palettes in a `.colorpalette` format compatible with Studio One.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Image-Based Color Extraction**: Upload an image to extract a color palette using either categorical or complementary methods.
+- **Harmonization Models**: Apply predefined color harmonization styles (70s, 80s, Vibrant, Neon, Pastel) to adjust the palette's aesthetic.
+- **Customizable Parameters**:
+  - Adjust the number of colors per hue group.
+  - Control the similarity threshold to filter out visually similar colors.
+  - Choose between categorical or complementary color extraction methods.
+- **Drag-and-Drop Support**: Upload images via file selection or drag-and-drop.
+- **Export Functionality**: Export the generated palette as a `.colorpalette` file for use in Studio One.
+- **Local Processing**: All image processing and palette generation occur in the browser, ensuring no user data is sent to a server.
