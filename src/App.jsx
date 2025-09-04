@@ -1,3 +1,13 @@
+/**
+ * Creating a color palette is an art, not a science—there’s no single “right” way to do it.
+ * I’d start with Categorical mode and an Analogous palette type, setting 10 colors per group for a balanced foundation.
+ * If you notice repetitive tints, nudge the Similarity Filter higher until the palette feels distinct.
+ * Want more tint variations? Increase the Colors per Group.
+ * Don’t be intimidated by terms like Complementary or Triadic—they’re just different ways to relate colors.
+ * Experiment freely! Categorical excels for longer, varied tint lists, while Complementary is ideal for precise, concise palettes.
+ * Dive in, play with the settings, and craft a palette that feels uniquely yours. Have fun and enjoy!
+ */
+
 import React, { useState, useEffect, useRef } from "react";
 
 // Improved color conversion functions
@@ -309,7 +319,6 @@ const getMedianColor = (pixels) => {
 const kMeansClustering = (pixels, k, maxIterations = 10, sampleSize = 1000) => {
   if (pixels.length === 0 || k === 0) return [];
 
-  // Sample a subset of pixels to reduce computation
   const sampledPixels =
     pixels.length > sampleSize
       ? Array.from(
@@ -318,7 +327,6 @@ const kMeansClustering = (pixels, k, maxIterations = 10, sampleSize = 1000) => {
         )
       : pixels;
 
-  // Initialize centroids with k-means++ algorithm
   let centroids = [
     sampledPixels[Math.floor(Math.random() * sampledPixels.length)],
   ];
@@ -351,9 +359,8 @@ const kMeansClustering = (pixels, k, maxIterations = 10, sampleSize = 1000) => {
     }
   }
 
-  // Perform k-means iterations with timeout
   const startTime = performance.now();
-  const timeoutMs = 5000; // 5 seconds timeout
+  const timeoutMs = 5000;
 
   for (let iter = 0; iter < maxIterations; iter++) {
     if (performance.now() - startTime > timeoutMs) {
@@ -530,8 +537,8 @@ const App = () => {
   const [dominantColorCount, setDominantColorCount] = useState(3);
   const [isDragging, setIsDragging] = useState(false);
   const [similarityThreshold, setSimilarityThreshold] = useState(15);
-  const [paletteType, setPaletteType] = useState("complementary");
-  const [showColorValues, setShowColorValues] = useState(true);
+  const [paletteType, setPaletteType] = useState("analogous");
+  const [showColorValues, setShowColorValues] = useState(false);
   const imageRef = useRef(null);
 
   const categories = {
@@ -572,7 +579,7 @@ const App = () => {
     img.onload = () => {
       const tempCanvas = document.createElement("canvas");
       const tempCtx = tempCanvas.getContext("2d");
-      const maxDim = 100; // Reduced for faster processing
+      const maxDim = 100;
       const ratio = Math.min(maxDim / img.width, maxDim / img.height);
       tempCanvas.width = img.width * ratio;
       tempCanvas.height = img.height * ratio;
@@ -787,7 +794,7 @@ const App = () => {
       <div className="w-full max-w-6xl p-6 bg-white rounded-xl shadow-lg dark:bg-gray-800 dark:shadow-xl transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            S1 Color Palette Generator v0.2.0
+            S1 Color Palette Generator v0.2.1
           </h1>
         </div>
 
@@ -834,12 +841,23 @@ const App = () => {
           </div>
 
           <div className="w-full flex flex-col items-center">
-            <h2 className="text-2xl font-semibold mb-4 text-center text-gray-900 dark:text-gray-100">
-              Generated Palette
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 w-full">
-              <div className="flex flex-col">
+            <div className=" w-full rounded-xl p-4 flex border border-gray-200  dark:border-gray-600 flex-wrap justify-center items-start space-y-4 sm:space-y-0 sm:space-x-4 mb-4">
+              <div class="text-center w-full text-sm text-gray-600 dark:text-gray-300 mb-6">
+                I’d start with <strong>Categorical</strong> mode and an{" "}
+                <strong>Analogous</strong> palette type, setting{" "}
+                <strong>10 colors per group</strong>. Too many similar shades?
+                Slide the <strong>Similarity Filter</strong> higher until your
+                palette feels distinct. Too few colors? Slide the{" "}
+                <strong>Similarity Filter</strong> lower. Want more color
+                variety? Bump up the <strong>Colors per Group</strong>. Want to
+                apply a different vibe? Select a different harmonization mode.
+                Don’t let terms like Complementary or Triadic scare you—they’re
+                just ways to mix colors.
+                <strong> Categorical</strong> usually creates long, vibrant tint
+                lists, while <strong>Complementary</strong> crafts short, sharp
+                palettes. Dive in, play with the settings, have fun and enjoy!
+              </div>
+              <div className="flex flex-col w-full sm:w-auto">
                 <label
                   htmlFor="method"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -860,7 +878,50 @@ const App = () => {
                 </select>
               </div>
 
-              <div className="flex flex-col">
+              {extractionMethod === "complementary" && (
+                <>
+                  <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
+                    →
+                  </div>
+                  <div className="flex flex-col w-full sm:w-auto">
+                    <label
+                      htmlFor="dominantColorCount"
+                      className="block text-sm font-medium sovereignty-gray-700 dark:text-gray-300 mb-2"
+                    >
+                      <Hint
+                        label="Dominant Colors"
+                        text="Set how many dominant colors to extract from the image. Higher values will create more diverse palettes but may take longer to process."
+                      />
+                    </label>
+                    <input
+                      id="dominantColorCount"
+                      type="range"
+                      min="1"
+                      max="16"
+                      value={dominantColorCount}
+                      onChange={(e) =>
+                        setDominantColorCount(Number(e.target.value))
+                      }
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                      style={{
+                        "--tw-shadow-color": "0 0 0 #fff",
+                        "--tw-ring-offset-shadow": "0 0 0 #fff",
+                        "--tw-ring-shadow": "0 0 0 #fff",
+                        "--webkit-slider-thumb": "bg-blue-600",
+                      }}
+                    />
+                    <span className="text-xs mt-3 text-gray-500 dark:text-gray-400 text-center">
+                      {dominantColorCount} colors
+                    </span>
+                  </div>
+                </>
+              )}
+
+              <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
+                →
+              </div>
+
+              <div className="flex flex-col w-full sm:w-auto">
                 <label
                   htmlFor="paletteType"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -884,7 +945,11 @@ const App = () => {
                 </select>
               </div>
 
-              <div className="flex flex-col">
+              <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
+                →
+              </div>
+
+              <div className="flex flex-col w-full sm:w-auto">
                 <label
                   htmlFor="colorsPerHue"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -902,13 +967,23 @@ const App = () => {
                   value={colorsPerHue}
                   onChange={(e) => setColorsPerHue(Number(e.target.value))}
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                  style={{
+                    "--tw-shadow-color": "0 0 0 #fff",
+                    "--tw-ring-offset-shadow": "0 0 0 #fff",
+                    "--tw-ring-shadow": "0 0 0 #fff",
+                    "--webkit-slider-thumb": "bg-blue-600",
+                  }}
                 />
                 <span className="text-xs mt-3 text-gray-500 dark:text-gray-400 text-center">
                   {colorsPerHue} colors
                 </span>
               </div>
 
-              <div className="flex flex-col">
+              <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
+                →
+              </div>
+
+              <div className="flex flex-col w-full sm:w-auto">
                 <label
                   htmlFor="harmonize"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -935,35 +1010,11 @@ const App = () => {
                 </select>
               </div>
 
-              {extractionMethod === "complementary" && (
-                <div className="flex flex-col">
-                  <label
-                    htmlFor="dominantColorCount"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    <Hint
-                      label="Dominant Colors"
-                      text="Set how many dominant colors to extract from the image. Higher values will create more diverse palettes but may take longer to process."
-                    />
-                  </label>
-                  <input
-                    id="dominantColorCount"
-                    type="range"
-                    min="1"
-                    max="4" // Reduced max to improve performance
-                    value={dominantColorCount}
-                    onChange={(e) =>
-                      setDominantColorCount(Number(e.target.value))
-                    }
-                    className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
-                  />
-                  <span className="text-xs mt-3 text-gray-500 dark:text-gray-400 text-center">
-                    {dominantColorCount} colors
-                  </span>
-                </div>
-              )}
+              <div className="hidden sm:flex items-center text-2xl font-bold bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-transparent bg-clip-text drop-shadow-sm">
+                →
+              </div>
 
-              <div className="flex flex-col">
+              <div className="flex flex-col w-full sm:w-auto">
                 <label
                   htmlFor="similarityThreshold"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
@@ -983,33 +1034,22 @@ const App = () => {
                     setSimilarityThreshold(Number(e.target.value))
                   }
                   className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-gray-700"
+                  style={{
+                    "--tw-shadow-color": "0 0 0 #fff",
+                    "--tw-ring-offset-shadow": "0 0 0 #fff",
+                    "--tw-ring-shadow": "0 0 0 #fff",
+                    "--webkit-slider-thumb": "bg-blue-600",
+                  }}
                 />
                 <span className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center">
                   {similarityThreshold} (0=strict, 30=loose)
                 </span>
               </div>
-
-              <div className="flex flex-col">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Display Options
-                </label>
-                <div className="flex items-center mt-1">
-                  <input
-                    id="showColorValues"
-                    type="checkbox"
-                    checked={showColorValues}
-                    onChange={(e) => setShowColorValues(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label
-                    htmlFor="showColorValues"
-                    className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
-                  >
-                    Show color values
-                  </label>
-                </div>
-              </div>
             </div>
+
+            <h2 className="text-2xl font-semibold mb-4 text-center text-gray-900 dark:text-gray-100">
+              Generated Palette
+            </h2>
 
             {palette.length > 0 && (
               <div className="text-center mb-6">
@@ -1050,7 +1090,7 @@ const App = () => {
                   <path
                     className="opacity-75"
                     fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    d="M4 12a8 8 0 018-8V0C5.373e 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
                 <span className="text-gray-600 dark:text-gray-400">
@@ -1058,53 +1098,72 @@ const App = () => {
                 </span>
               </div>
             ) : (
-              <div className="flex flex-wrap justify-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-600 w-full">
-                {palette.length > 0 ? (
-                  palette.map((color, index) => {
-                    const [r, g, b] = color;
-                    const hexCode = rgbToHex(r, g, b);
-                    const textColor =
-                      r * 0.299 + g * 0.587 + b * 0.114 > 150
-                        ? "#000000"
-                        : "#FFFFFF";
+              <div className="w-full">
+                <div className="flex flex-wrap justify-center gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-600 w-full">
+                  {palette.length > 0 ? (
+                    palette.map((color, index) => {
+                      const [r, g, b] = color;
+                      const hexCode = rgbToHex(r, g, b);
+                      const textColor =
+                        r * 0.299 + g * 0.587 + b * 0.114 > 150
+                          ? "#000000"
+                          : "#FFFFFF";
 
-                    return (
-                      <div
-                        key={index}
-                        className="relative group rounded-lg overflow-hidden shadow-md"
-                        style={{
-                          width: "100px",
-                          height: "100px",
-                          backgroundColor: hexCode,
-                          border: "1px solid rgba(255, 255, 255, 0.1)",
-                        }}
-                      >
-                        {showColorValues && (
-                          <div
-                            className="absolute bottom-0 left-0 right-0 p-1 text-xs text-center font-mono transition-opacity duration-200"
-                            style={{
-                              backgroundColor: "rgba(0, 0, 0, 0.6)",
-                              color: textColor,
-                            }}
-                          >
-                            {hexCode}
-                          </div>
-                        )}
-                        <button
-                          id={`color-${hexCode}`}
-                          onClick={() => copyToClipboard(color)}
-                          className="absolute top-1 right-1 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                      return (
+                        <div
+                          key={index}
+                          className="relative group rounded-lg overflow-hidden shadow-md"
+                          style={{
+                            width: "100px",
+                            height: "100px",
+                            backgroundColor: hexCode,
+                            border: "1px solid rgba(255, 255, 255, 0.1)",
+                          }}
                         >
-                          Copy
-                        </button>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400 text-center">
-                    Your palette will appear here.
-                  </p>
-                )}
+                          {showColorValues && (
+                            <div
+                              className="absolute bottom-0 left-0 right-0 p-1 text-xs text-center font-mono transition-opacity duration-200"
+                              style={{
+                                backgroundColor: "rgba(0, 0, 0, 0.6)",
+                                color: textColor,
+                              }}
+                            >
+                              {hexCode}
+                            </div>
+                          )}
+                          <button
+                            id={`color-${hexCode}`}
+                            onClick={() => copyToClipboard(color)}
+                            className="absolute top-1 right-1 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover-opacity-100 transition-opacity duration-200"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400 text-center w-full">
+                      Your palette will appear here.
+                    </p>
+                  )}
+                </div>
+                <div className="flex justify-end mt-4">
+                  <div className="flex items-center">
+                    <input
+                      id="showColorValues"
+                      type="checkbox"
+                      checked={showColorValues}
+                      onChange={(e) => setShowColorValues(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="showColorValues"
+                      className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      Show color values
+                    </label>
+                  </div>
+                </div>
               </div>
             )}
 
