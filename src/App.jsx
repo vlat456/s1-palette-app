@@ -173,6 +173,25 @@ const filterSimilarColors = (colors, threshold = 10) => {
   return filtered;
 };
 
+// New Hint component
+const Hint = ({ label, text }) => (
+  <div className="relative inline-block group">
+    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      {label}
+    </span>
+    <span className="ml-1 text-gray-400 cursor-pointer text-xs align-top">
+      ?
+    </span>
+    <div className="absolute left-1/2 transform -translate-x-1/2 -top-12 opacity-0 group-hover:opacity-100 group-hover:-top-16 transition-all duration-300 w-64 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg z-50 pointer-events-none">
+      <div className="relative">{text}</div>
+      <div
+        className="absolute w-3 h-3 bg-gray-800 transform rotate-45 -bottom-1 left-1/2 -translate-x-1/2"
+        style={{ clipPath: "polygon(0 0, 100% 0, 50% 100%)" }}
+      ></div>
+    </div>
+  </div>
+);
+
 const App = () => {
   // State variables
   const [imageSrc, setImageSrc] = useState(null);
@@ -491,7 +510,10 @@ const App = () => {
                   htmlFor="harmonize"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Harmonization
+                  <Hint
+                    label="Harmonization"
+                    text="Choose None to keep the colors as they are in the uploaded image. The other options will apply a specific set of rules to harmonize the colors, giving the palette a specific 'feel' (e.g., retro, vibrant, pastel)."
+                  />
                 </label>
                 <select
                   id="harmonize"
@@ -513,7 +535,10 @@ const App = () => {
                   htmlFor="method"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Extraction Method
+                  <Hint
+                    label="Extraction Method"
+                    text="This determines how the app finds color clusters in your photo. Categorical creates a palette by sampling from different color families (e.g., reds, blues, greens), while Complementary finds the most dominant colors and then generates a palette with their complements. Feel free to experiment with both to see which one you like best."
+                  />
                 </label>
                 <select
                   id="method"
@@ -531,7 +556,10 @@ const App = () => {
                   htmlFor="colorsPerHue"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Colors per group
+                  <Hint
+                    label="Colors per group"
+                    text="This is the number of colors the app will attempt to generate for each extracted color group. For example, if you choose Categorical, this will be the number of shades and tints generated for each hue."
+                  />
                 </label>
                 <input
                   id="colorsPerHue"
@@ -549,7 +577,10 @@ const App = () => {
                   htmlFor="similarityThreshold"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Similarity Filter
+                  <Hint
+                    label="Similarity Filter"
+                    text="Use this slider to filter out colors that are visually too similar. A lower value (more to the left) will result in a larger palette with more subtle variations, while a higher value (more to the right) will create a smaller palette with more distinct colors."
+                  />
                 </label>
                 <input
                   id="similarityThreshold"
