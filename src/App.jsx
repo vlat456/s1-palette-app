@@ -197,7 +197,7 @@ const App = () => {
   const [imageSrc, setImageSrc] = useState(null);
   const [palette, setPalette] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [colorsPerHue, setColorsPerHue] = useState(10);
+  const [colorsPerHue, setColorsPerHue] = useState(20);
   const [harmonizeModel, setHarmonizeModel] = useState("none");
   const [extractionMethod, setExtractionMethod] = useState("categorical");
   const [dominantColorCount, setDominantColorCount] = useState(3);
@@ -346,12 +346,13 @@ const App = () => {
   // Helper for generating color variations (shades and tints)
   const generateColorVariations = (baseColor, numVariations) => {
     const variations = [];
-    const [h, s, l] = rgbToHsl(...baseColor);
+    const [h, s] = rgbToHsl(...baseColor);
     for (let i = 0; i < numVariations; i++) {
       const varL = 0.1 + (0.8 * i) / (numVariations - 1);
       variations.push(hslToRgb(h, s, varL));
     }
-    return variations.sort((a, b) => rgbToHsl(...a)[2] - rgbToHsl(...b)[2]);
+    // Changed from ascending to descending lightness
+    return variations.sort((a, b) => rgbToHsl(...b)[2] - rgbToHsl(...a)[2]);
   };
 
   // Simple pixel averaging to get a representative color from a group
@@ -451,7 +452,7 @@ const App = () => {
       <div className="w-full max-w-4xl p-6 bg-white rounded-xl shadow-lg dark:bg-gray-800 dark:shadow-xl transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            S1 Color Palette Generator v0.1.2
+            S1 Color Palette Generator v0.1.3
           </h1>
         </div>
 
