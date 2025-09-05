@@ -560,7 +560,7 @@ const App = () => {
   const [similarityThreshold, setSimilarityThreshold] = useState(0);
   const [paletteType, setPaletteType] = useState("analogous");
   const [showColorValues, setShowColorValues] = useState(false);
-  const [useAdaptiveThreshold, setUseAdaptiveThreshold] = useState(true);
+  const [useAdaptiveThreshold, setUseAdaptiveThreshold] = useState(false);
   const imageRef = useRef(null);
 
   const categories = {
@@ -568,11 +568,17 @@ const App = () => {
       [0.0, 0.0833],
       [0.9167, 1.0],
     ],
+    coral: [[0.0833, 0.104]],
     orange: [[0.0833, 0.1667]],
+    amber: [[0.1667, 0.1875]],
     yellow: [[0.1667, 0.25]],
+    lime: [[0.25, 0.3333]],
     green: [[0.25, 0.5]],
+    teal: [[0.5, 0.5833]],
     blue: [[0.5, 0.75]],
+    indigo: [[0.75, 0.8333]],
     purple: [[0.75, 0.9167]],
+    magenta: [[0.9167, 1.0]],
   };
 
   useEffect(() => {
@@ -623,11 +629,17 @@ const App = () => {
       if (extractionMethod === "categorical") {
         const categoryOrder = [
           "red",
+          "coral",
           "orange",
+          "amber",
           "yellow",
+          "lime",
           "green",
+          "teal",
           "blue",
+          "indigo",
           "purple",
+          "magenta",
         ];
         categoryOrder.forEach((cat) => {
           const rangePairs = categories[cat];
@@ -835,7 +847,7 @@ const App = () => {
       <div className="w-full max-w-6xl p-6 bg-white rounded-xl shadow-lg dark:bg-gray-800 dark:shadow-xl transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            S1 Color Palette Generator v0.2.1
+            S1 Color Palette Generator v0.2.2
           </h1>
         </div>
 
