@@ -939,7 +939,7 @@ const App = () => {
                   <div className="flex flex-col w-full sm:w-auto">
                     <label
                       htmlFor="dominantColorCount"
-                      className="block text-sm font-medium sovereignty-gray-700 dark:text-gray-300 mb-2"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                     >
                       <Hint
                         label="Dominant Colors"
@@ -1131,7 +1131,7 @@ const App = () => {
                     shadow-lg hover:shadow-xl
                     focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800
                     active:scale-95
-                    text-shadow-neon
+      
                   "
                 >
                   Download Palette file
@@ -1202,7 +1202,7 @@ const App = () => {
                           <button
                             id={`color-${hexCode}`}
                             onClick={() => copyToClipboard(color)}
-                            className="absolute top-1 right-1 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover-opacity-100 transition-opacity duration-200"
+                            className="absolute top-1 right-1 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                           >
                             Copy
                           </button>
