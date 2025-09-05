@@ -509,6 +509,27 @@ const generateMonochromaticPalette = (baseColor, numVariations) => {
   return variations;
 };
 
+const getAdaptiveThreshold = (colors, userThreshold) => {
+  if (colors.length < 10) return userThreshold;
+
+  const sampleSize = Math.min(colors.length, 30);
+  let totalDistance = 0;
+  let comparisons = 0;
+
+  for (let i = 0; i < sampleSize; i += 2) {
+    for (let j = i + 1; j < sampleSize; j += 3) {
+      totalDistance += deltaE(colors[i], colors[j]);
+      comparisons++;
+    }
+  }
+
+  const avgDistance = totalDistance / comparisons;
+  const adaptiveBase = Math.max(2, Math.min(20, avgDistance * 0.3));
+
+  // Blend user preference with adaptive suggestion
+  return userThreshold * 0.7 + adaptiveBase * 0.3;
+};
+
 const Hint = ({ label, text }) => (
   <div className="relative inline-block group">
     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -531,14 +552,15 @@ const App = () => {
   const [imageSrc, setImageSrc] = useState(null);
   const [palette, setPalette] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [colorsPerHue, setColorsPerHue] = useState(10);
+  const [colorsPerHue, setColorsPerHue] = useState(11);
   const [harmonizeModel, setHarmonizeModel] = useState("none");
   const [extractionMethod, setExtractionMethod] = useState("categorical");
   const [dominantColorCount, setDominantColorCount] = useState(3);
   const [isDragging, setIsDragging] = useState(false);
-  const [similarityThreshold, setSimilarityThreshold] = useState(15);
+  const [similarityThreshold, setSimilarityThreshold] = useState(0);
   const [paletteType, setPaletteType] = useState("analogous");
   const [showColorValues, setShowColorValues] = useState(false);
+  const [useAdaptiveThreshold, setUseAdaptiveThreshold] = useState(true);
   const imageRef = useRef(null);
 
   const categories = {
@@ -684,6 +706,13 @@ const App = () => {
         });
       }
 
+      // Order by hue
+      // newPalette.sort((a, b) => {
+      //   const [hA] = rgbToHsl(...a); // Get hue (0-1)
+      //   const [hB] = rgbToHsl(...b);
+      //   return hA - hB; // Ascending hue order (red to purple)
+      // });
+
       if (harmonizeModel !== "none") {
         newPalette = harmonizeColors(newPalette, harmonizeModel);
       }
@@ -693,10 +722,21 @@ const App = () => {
         return l > 0.1 && l < 0.95 && s > 0.1;
       });
 
-      const similarityFiltered = filterSimilarColors(
+      const finalThreshold = getAdaptiveThreshold(
         filteredPalette,
         similarityThreshold
       );
+
+      const similarityFiltered = filterSimilarColors(
+        filteredPalette,
+        useAdaptiveThreshold ? finalThreshold : similarityThreshold
+      );
+
+      /* Our original version */
+      // const similarityFiltered = filterSimilarColors(
+      //   filteredPalette,
+      //   similarityThreshold
+      // );
 
       const uniqueColors = Array.from(
         new Set(similarityFiltered.map(JSON.stringify))
@@ -717,6 +757,7 @@ const App = () => {
     extractionMethod,
     dominantColorCount,
     similarityThreshold,
+    useAdaptiveThreshold,
     paletteType,
   ]);
 
@@ -1044,6 +1085,21 @@ const App = () => {
                 <span className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center">
                   {similarityThreshold} (0=strict, 30=loose)
                 </span>
+                <div className="flex items-center mt-2">
+                  <input
+                    id="useAdaptiveThreshold"
+                    type="checkbox"
+                    checked={useAdaptiveThreshold}
+                    onChange={(e) => setUseAdaptiveThreshold(e.target.checked)}
+                    className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="useAdaptiveThreshold"
+                    className="ml-1 block text-xs text-gray-600 dark:text-gray-400"
+                  >
+                    Auto-adjust
+                  </label>
+                </div>
               </div>
             </div>
 
