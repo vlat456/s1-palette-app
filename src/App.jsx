@@ -627,17 +627,13 @@ const App = () => {
       [0.0, 0.05],
       [0.95, 1.0],
     ],
-    coral: [[0.05, 0.09]],
-    orange: [[0.09, 0.14]],
-    amber: [[0.14, 0.18]],
-    yellow: [[0.18, 0.26]],
-    lime: [[0.26, 0.31]],
-    green: [[0.31, 0.44]],
+    orange: [[0.05, 0.13]],
+    yellow: [[0.13, 0.24]],
+    green: [[0.24, 0.44]],
     teal: [[0.44, 0.54]],
     blue: [[0.54, 0.69]],
-    indigo: [[0.69, 0.78]],
-    purple: [[0.78, 0.88]],
-    magenta: [[0.88, 0.95]],
+    purple: [[0.69, 0.83]],
+    magenta: [[0.83, 0.95]],
   };
 
   useEffect(() => {
@@ -688,15 +684,11 @@ const App = () => {
       if (extractionMethod === "categorical") {
         const categoryOrder = [
           "red",
-          "coral",
           "orange",
-          "amber",
           "yellow",
-          "lime",
           "green",
           "teal",
           "blue",
-          "indigo",
           "purple",
           "magenta",
         ];
