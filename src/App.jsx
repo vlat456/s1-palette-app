@@ -698,9 +698,46 @@ const App = () => {
 
         const minPixels = Math.max(15, activePixels.length * 0.01); // Require at least 1% of total pixels (min 15) to avoid noise categories
 
+        // 1. Gather active categories and sort them by pixel count (descending)
+        const activeCats = [];
         categoryOrder.forEach((cat) => {
           const data = catData[cat];
-          const isActive = data && data.count >= minPixels;
+          if (data && data.count >= minPixels) {
+            activeCats.push({
+              name: cat,
+              dominant: data.dominant,
+              count: data.count,
+            });
+          }
+        });
+        activeCats.sort((a, b) => b.count - a.count);
+
+        // 2. Filter out similar categories based on deltaE
+        const acceptedCats = [];
+        const similarityCatThreshold = 14; // deltaE threshold for distinct category rows
+
+        activeCats.forEach((item) => {
+          let tooSimilar = false;
+          for (const accepted of acceptedCats) {
+            const diff = deltaE(item.dominant, accepted.dominant);
+            if (diff < similarityCatThreshold) {
+              tooSimilar = true;
+              break;
+            }
+          }
+          if (!tooSimilar) {
+            acceptedCats.push(item);
+          }
+        });
+
+        const finalActiveCatsMap = {};
+        acceptedCats.forEach((item) => {
+          finalActiveCatsMap[item.name] = true;
+        });
+
+        categoryOrder.forEach((cat) => {
+          const data = catData[cat];
+          const isActive = finalActiveCatsMap[cat];
 
           if (isActive || fillMissingHues) {
             let dominant;
