@@ -620,6 +620,7 @@ const App = () => {
   const [paletteType, setPaletteType] = useState("analogous");
   const [showColorValues, setShowColorValues] = useState(false);
   const [useAdaptiveThreshold, setUseAdaptiveThreshold] = useState(false);
+  const [fillMissingHues, setFillMissingHues] = useState(true);
   const imageRef = useRef(null);
 
   const categories = {
@@ -634,6 +635,17 @@ const App = () => {
     blue: [[0.54, 0.69]],
     purple: [[0.69, 0.83]],
     magenta: [[0.83, 0.95]],
+  };
+
+  const categoryCenterHues = {
+    red: 0.0,
+    orange: 0.09,
+    yellow: 0.185,
+    green: 0.34,
+    teal: 0.49,
+    blue: 0.615,
+    purple: 0.76,
+    magenta: 0.89,
   };
 
   useEffect(() => {
@@ -692,15 +704,48 @@ const App = () => {
           "purple",
           "magenta",
         ];
+
+        const catData = {};
+        let maxPixels = 0;
+        let prominentColor = [128, 128, 128]; // fallback
+
         categoryOrder.forEach((cat) => {
           const rangePairs = categories[cat];
           const catPixels = allPixels.filter((p) => {
             const [h] = rgbToHsl(...p);
             return rangePairs.some(([low, high]) => h >= low && h < high);
           });
-          const minPixels = Math.max(15, allPixels.length * 0.01); // Require at least 1% of total pixels (min 15) to avoid noise categories
-          if (catPixels.length >= minPixels) {
+          
+          if (catPixels.length > 0) {
             const dominant = getMedianColor(catPixels);
+            catData[cat] = {
+              dominant: dominant,
+              count: catPixels.length,
+            };
+            if (catPixels.length > maxPixels) {
+              maxPixels = catPixels.length;
+              prominentColor = dominant;
+            }
+          }
+        });
+
+        const minPixels = Math.max(15, allPixels.length * 0.01); // Require at least 1% of total pixels (min 15) to avoid noise categories
+
+        categoryOrder.forEach((cat) => {
+          const data = catData[cat];
+          const isActive = data && data.count >= minPixels;
+
+          if (isActive || fillMissingHues) {
+            let dominant;
+            if (isActive) {
+              dominant = data.dominant;
+            } else {
+              // Dynamically generate base color for missing category
+              const [, s, l] = rgbToHsl(...prominentColor);
+              const targetH = categoryCenterHues[cat];
+              dominant = hslToRgb(targetH, s, l);
+            }
+
             let variations = [];
 
             switch (paletteType) {
@@ -812,6 +857,7 @@ const App = () => {
     dominantColorCount,
     similarityThreshold,
     useAdaptiveThreshold,
+    fillMissingHues,
     paletteType,
   ]);
 
@@ -1139,20 +1185,37 @@ const App = () => {
                 <span className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center">
                   {similarityThreshold} (0=strict, 30=loose)
                 </span>
-                <div className="flex items-center mt-2">
-                  <input
-                    id="useAdaptiveThreshold"
-                    type="checkbox"
-                    checked={useAdaptiveThreshold}
-                    onChange={(e) => setUseAdaptiveThreshold(e.target.checked)}
-                    className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label
-                    htmlFor="useAdaptiveThreshold"
-                    className="ml-1 block text-xs text-gray-600 dark:text-gray-400"
-                  >
-                    Auto-adjust
-                  </label>
+                <div className="flex items-center mt-2 justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="useAdaptiveThreshold"
+                      type="checkbox"
+                      checked={useAdaptiveThreshold}
+                      onChange={(e) => setUseAdaptiveThreshold(e.target.checked)}
+                      className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="useAdaptiveThreshold"
+                      className="ml-1 block text-xs text-gray-600 dark:text-gray-400"
+                    >
+                      Auto-adjust
+                    </label>
+                  </div>
+                  <div className="flex items-center ml-4">
+                    <input
+                      id="fillMissingHues"
+                      type="checkbox"
+                      checked={fillMissingHues}
+                      onChange={(e) => setFillMissingHues(e.target.checked)}
+                      className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="fillMissingHues"
+                      className="ml-1 block text-xs text-gray-600 dark:text-gray-400"
+                    >
+                      Fill missing hues
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
