@@ -714,7 +714,7 @@ const App = () => {
 
         // 2. Filter out similar categories based on deltaE
         const acceptedCats = [];
-        const similarityCatThreshold = 14; // deltaE threshold for distinct category rows
+        const similarityCatThreshold = 20; // deltaE threshold for distinct category rows
 
         activeCats.forEach((item) => {
           let tooSimilar = false;
