@@ -227,12 +227,50 @@ const filterSimilarColors = (colors, threshold = 10) => {
 const getMedianColor = (pixels) => {
   if (pixels.length === 0) return [0, 0, 0];
 
-  const rVals = pixels.map((p) => p[0]).sort((a, b) => a - b);
-  const gVals = pixels.map((p) => p[1]).sort((a, b) => a - b);
-  const bVals = pixels.map((p) => p[2]).sort((a, b) => a - b);
+  // Calculate saturation and store along with pixel
+  const pixelsWithSat = pixels.map((p) => {
+    const [, s] = rgbToHsl(...p);
+    return { p, s };
+  });
 
-  const mid = Math.floor(pixels.length / 2);
+  // Sort by saturation descending
+  pixelsWithSat.sort((a, b) => b.s - a.s);
+
+  // Take the top 30% most saturated pixels (minimum 1, max all)
+  const topCount = Math.max(1, Math.floor(pixelsWithSat.length * 0.3));
+  const topPixels = pixelsWithSat.slice(0, topCount).map((item) => item.p);
+
+  // Return the median of this top subset
+  const rVals = topPixels.map((p) => p[0]).sort((a, b) => a - b);
+  const gVals = topPixels.map((p) => p[1]).sort((a, b) => a - b);
+  const bVals = topPixels.map((p) => p[2]).sort((a, b) => a - b);
+
+  const mid = Math.floor(topPixels.length / 2);
   return [rVals[mid], gVals[mid], bVals[mid]];
+};
+
+const getWeightedSample = (pixels, sampleSize) => {
+  const sample = [];
+  const maxAttempts = sampleSize * 10;
+  let attempts = 0;
+
+  while (sample.length < sampleSize && attempts < maxAttempts) {
+    attempts++;
+    const p = pixels[Math.floor(Math.random() * pixels.length)];
+    if (!p) continue;
+    const [, s] = rgbToHsl(...p);
+    // Rejection sampling: accept with probability proportional to saturation
+    if (Math.random() < 0.15 + 0.85 * s) {
+      sample.push(p);
+    }
+  }
+
+  // Fallback to fill remaining slots
+  while (sample.length < sampleSize) {
+    sample.push(pixels[Math.floor(Math.random() * pixels.length)] || [0, 0, 0]);
+  }
+
+  return sample;
 };
 
 const kMeansClustering = (pixels, k, maxIterations = 10, sampleSize = 1000) => {
@@ -240,10 +278,7 @@ const kMeansClustering = (pixels, k, maxIterations = 10, sampleSize = 1000) => {
 
   const sampledPixels =
     pixels.length > sampleSize
-      ? Array.from(
-          { length: sampleSize },
-          () => pixels[Math.floor(Math.random() * pixels.length)]
-        )
+      ? getWeightedSample(pixels, sampleSize)
       : pixels;
 
   let centroids = [
@@ -565,6 +600,7 @@ const App = () => {
   const [showColorValues, setShowColorValues] = useState(false);
   const [useAdaptiveThreshold, setUseAdaptiveThreshold] = useState(false);
   const [fillMissingHues, setFillMissingHues] = useState(true);
+  const [excludeNeutrals, setExcludeNeutrals] = useState(true);
   const imageRef = useRef(null);
 
   useEffect(() => {
@@ -612,6 +648,18 @@ const App = () => {
         allPixels.push([pixels[i], pixels[i + 1], pixels[i + 2]]);
       }
 
+      let activePixels = allPixels;
+      if (excludeNeutrals) {
+        activePixels = allPixels.filter((p) => {
+          const [, s, l] = rgbToHsl(...p);
+          // Exclude if saturation < 8%, or lightness is too extreme (black/white)
+          return s >= 0.08 && l >= 0.10 && l <= 0.92;
+        });
+        if (activePixels.length === 0) {
+          activePixels = allPixels;
+        }
+      }
+
       if (extractionMethod === "categorical") {
         const categoryOrder = [
           "red",
@@ -630,7 +678,7 @@ const App = () => {
 
         categoryOrder.forEach((cat) => {
           const rangePairs = categories[cat];
-          const catPixels = allPixels.filter((p) => {
+          const catPixels = activePixels.filter((p) => {
             const [h] = rgbToHsl(...p);
             return rangePairs.some(([low, high]) => h >= low && h < high);
           });
@@ -648,7 +696,7 @@ const App = () => {
           }
         });
 
-        const minPixels = Math.max(15, allPixels.length * 0.01); // Require at least 1% of total pixels (min 15) to avoid noise categories
+        const minPixels = Math.max(15, activePixels.length * 0.01); // Require at least 1% of total pixels (min 15) to avoid noise categories
 
         categoryOrder.forEach((cat) => {
           const data = catData[cat];
@@ -712,7 +760,7 @@ const App = () => {
           }
         });
       } else {
-        const dominantColors = getDominantColors(allPixels, dominantColorCount);
+        const dominantColors = getDominantColors(activePixels, dominantColorCount);
         const targetCount = Math.max(3, Math.floor(colorsPerHue / dominantColorCount));
         dominantColors.forEach((color) => {
           let variations = [];
@@ -777,6 +825,7 @@ const App = () => {
     similarityThreshold,
     useAdaptiveThreshold,
     fillMissingHues,
+    excludeNeutrals,
     paletteType,
   ]);
 
@@ -1135,6 +1184,21 @@ const App = () => {
                       Fill missing hues
                     </label>
                   </div>
+                </div>
+                <div className="flex items-center mt-2">
+                  <input
+                    id="excludeNeutrals"
+                    type="checkbox"
+                    checked={excludeNeutrals}
+                    onChange={(e) => setExcludeNeutrals(e.target.checked)}
+                    className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="excludeNeutrals"
+                    className="ml-1 block text-xs text-gray-600 dark:text-gray-400"
+                  >
+                    Exclude neutrals (black/white/grey)
+                  </label>
                 </div>
               </div>
             </div>
