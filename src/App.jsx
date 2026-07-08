@@ -557,7 +557,7 @@ const App = () => {
   const [extractionMethod, setExtractionMethod] = useState("categorical");
   const [dominantColorCount, setDominantColorCount] = useState(3);
   const [isDragging, setIsDragging] = useState(false);
-  const [similarityThreshold, setSimilarityThreshold] = useState(0);
+  const [similarityThreshold, setSimilarityThreshold] = useState(5);
   const [paletteType, setPaletteType] = useState("analogous");
   const [showColorValues, setShowColorValues] = useState(false);
   const [useAdaptiveThreshold, setUseAdaptiveThreshold] = useState(false);
@@ -647,7 +647,8 @@ const App = () => {
             const [h] = rgbToHsl(...p);
             return rangePairs.some(([low, high]) => h >= low && h < high);
           });
-          if (catPixels.length > 0) {
+          const minPixels = Math.max(15, allPixels.length * 0.01); // Require at least 1% of total pixels (min 15) to avoid noise categories
+          if (catPixels.length >= minPixels) {
             const dominant = getMedianColor(catPixels);
             let variations = [];
 
