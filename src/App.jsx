@@ -69,88 +69,7 @@ const hslToRgb = (h, s, l) => {
   return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 };
 
-const rgbToHsv = (r, g, b) => {
-  r /= 255;
-  g /= 255;
-  b /= 255;
 
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const d = max - min;
-  let h,
-    s,
-    v = max;
-
-  if (max === 0) {
-    s = 0;
-  } else {
-    s = d / max;
-  }
-
-  if (max === min) {
-    h = 0;
-  } else {
-    switch (max) {
-      case r:
-        h = (g - b) / d + (g < b ? 6 : 0);
-        break;
-      case g:
-        h = (b - r) / d + 2;
-        break;
-      case b:
-        h = (r - g) / d + 4;
-        break;
-    }
-    h /= 6;
-  }
-
-  return [h, s, v];
-};
-
-const hsvToRgb = (h, s, v) => {
-  let r, g, b;
-
-  const i = Math.floor(h * 6);
-  const f = h * 6 - i;
-  const p = v * (1 - s);
-  const q = v * (1 - f * s);
-  const t = v * (1 - (1 - f) * s);
-
-  switch (i % 6) {
-    case 0:
-      r = v;
-      g = t;
-      b = p;
-      break;
-    case 1:
-      r = q;
-      g = v;
-      b = p;
-      break;
-    case 2:
-      r = p;
-      g = v;
-      b = t;
-      break;
-    case 3:
-      r = p;
-      g = q;
-      b = v;
-      break;
-    case 4:
-      r = t;
-      g = p;
-      b = v;
-      break;
-    case 5:
-      r = v;
-      g = p;
-      b = q;
-      break;
-  }
-
-  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-};
 
 const harmonizeColors = (colors, model) => {
   const models = {
@@ -422,7 +341,7 @@ const getDominantColors = (pixels, count) => {
 
 const generateColorVariations = (baseColor, numVariations) => {
   const variations = [];
-  const [baseH, baseS, baseL] = rgbToHsl(...baseColor);
+  const [baseH, baseS] = rgbToHsl(...baseColor);
 
   for (let i = 0; i < numVariations; i++) {
     const t = i / (numVariations - 1);
@@ -478,7 +397,7 @@ const generateTriadicPalette = (baseColor, numVariations) => {
 };
 
 const generateAnalogousPalette = (baseColor, numVariations) => {
-  const [h, s, l] = rgbToHsl(...baseColor);
+  const [h, s] = rgbToHsl(...baseColor);
   const analogousRange = 0.08;
 
   const variations = [];
@@ -607,6 +526,31 @@ const Hint = ({ label, text }) => (
   </div>
 );
 
+const categories = {
+  red: [
+    [0.0, 0.05],
+    [0.95, 1.0],
+  ],
+  orange: [[0.05, 0.13]],
+  yellow: [[0.13, 0.24]],
+  green: [[0.24, 0.44]],
+  teal: [[0.44, 0.54]],
+  blue: [[0.54, 0.69]],
+  purple: [[0.69, 0.83]],
+  magenta: [[0.83, 0.95]],
+};
+
+const categoryCenterHues = {
+  red: 0.0,
+  orange: 0.09,
+  yellow: 0.185,
+  green: 0.34,
+  teal: 0.49,
+  blue: 0.615,
+  purple: 0.76,
+  magenta: 0.89,
+};
+
 const App = () => {
   const [imageSrc, setImageSrc] = useState(null);
   const [palette, setPalette] = useState([]);
@@ -622,31 +566,6 @@ const App = () => {
   const [useAdaptiveThreshold, setUseAdaptiveThreshold] = useState(false);
   const [fillMissingHues, setFillMissingHues] = useState(true);
   const imageRef = useRef(null);
-
-  const categories = {
-    red: [
-      [0.0, 0.05],
-      [0.95, 1.0],
-    ],
-    orange: [[0.05, 0.13]],
-    yellow: [[0.13, 0.24]],
-    green: [[0.24, 0.44]],
-    teal: [[0.44, 0.54]],
-    blue: [[0.54, 0.69]],
-    purple: [[0.69, 0.83]],
-    magenta: [[0.83, 0.95]],
-  };
-
-  const categoryCenterHues = {
-    red: 0.0,
-    orange: 0.09,
-    yellow: 0.185,
-    green: 0.34,
-    teal: 0.49,
-    blue: 0.615,
-    purple: 0.76,
-    magenta: 0.89,
-  };
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -773,7 +692,7 @@ const App = () => {
 
             // Filter this category's variations
             const catFiltered = variations.filter((color) => {
-              const [h, s, l] = rgbToHsl(...color);
+              const [, s, l] = rgbToHsl(...color);
               return l > 0.1 && l < 0.95 && s > 0.1;
             });
 
@@ -817,7 +736,7 @@ const App = () => {
 
           // Filter this dominant color's variations
           const rowFiltered = variations.filter((c) => {
-            const [h, s, l] = rgbToHsl(...c);
+            const [, s, l] = rgbToHsl(...c);
             return l > 0.1 && l < 0.95 && s > 0.1;
           });
 
