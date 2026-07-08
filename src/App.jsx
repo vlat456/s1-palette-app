@@ -530,6 +530,65 @@ const getAdaptiveThreshold = (colors, userThreshold) => {
   return userThreshold * 0.7 + adaptiveBase * 0.3;
 };
 
+const interpolateHue = (h1, h2, t) => {
+  let diff = h2 - h1;
+  if (diff > 0.5) {
+    diff -= 1.0;
+  } else if (diff < -0.5) {
+    diff += 1.0;
+  }
+  return (h1 + diff * t + 1.0) % 1.0;
+};
+
+const stretchPaletteRow = (uniqueColors, k) => {
+  if (uniqueColors.length === 0) return [];
+
+  // Convert to HSL and sort by lightness
+  const hslColors = uniqueColors.map((rgb) => {
+    const [h, s, l] = rgbToHsl(...rgb);
+    return { h, s, l };
+  });
+  hslColors.sort((a, b) => b.l - a.l); // Sort light to dark
+
+  const result = [];
+  const M = hslColors.length;
+
+  if (M === 1) {
+    // Monochromatic stretch
+    const { h, s } = hslColors[0];
+    for (let i = 0; i < k; i++) {
+      const t = k > 1 ? i / (k - 1) : 0.5;
+      const varL = 0.15 + 0.7 * t;
+      result.push(hslToRgb(h, s, varL));
+    }
+  } else {
+    // Interpolation stretch
+    for (let i = 0; i < k; i++) {
+      const t = k > 1 ? i / (k - 1) : 0.0;
+      const idx = t * (M - 1);
+      const low = Math.floor(idx);
+      const high = Math.ceil(idx);
+      const weight = idx - low;
+
+      const cLow = hslColors[low];
+      const cHigh = hslColors[high];
+
+      const h = interpolateHue(cLow.h, cHigh.h, weight);
+      const s = cLow.s + (cHigh.s - cLow.s) * weight;
+      const l = cLow.l + (cHigh.l - cLow.l) * weight;
+
+      result.push(hslToRgb(h, s, l));
+    }
+  }
+
+  // Sort final result by lightness (light to dark)
+  return result.sort((a, b) => {
+    const [, , l1] = rgbToHsl(...a);
+    const [, , l2] = rgbToHsl(...b);
+    return l2 - l1;
+  });
+};
+
 const Hint = ({ label, text }) => (
   <div className="relative inline-block group">
     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -675,87 +734,77 @@ const App = () => {
                 variations = generateColorVariations(dominant, colorsPerHue);
             }
 
-            newPalette.push(...variations);
+            // Filter this category's variations
+            const catFiltered = variations.filter((color) => {
+              const [h, s, l] = rgbToHsl(...color);
+              return l > 0.1 && l < 0.95 && s > 0.1;
+            });
+
+            const catThreshold = getAdaptiveThreshold(
+              catFiltered,
+              similarityThreshold
+            );
+
+            const catSimilarityFiltered = filterSimilarColors(
+              catFiltered,
+              useAdaptiveThreshold ? catThreshold : similarityThreshold
+            );
+
+            // Stretch the row back to colorsPerHue
+            const stretchedRow = stretchPaletteRow(catSimilarityFiltered, colorsPerHue);
+            newPalette.push(...stretchedRow);
           }
         });
       } else {
         const dominantColors = getDominantColors(allPixels, dominantColorCount);
+        const targetCount = Math.max(3, Math.floor(colorsPerHue / dominantColorCount));
         dominantColors.forEach((color) => {
           let variations = [];
 
           switch (paletteType) {
             case "complementary":
-              variations = generateComplementaryPalette(
-                color,
-                Math.floor(colorsPerHue / dominantColorCount)
-              );
+              variations = generateComplementaryPalette(color, targetCount);
               break;
             case "triadic":
-              variations = generateTriadicPalette(
-                color,
-                Math.floor(colorsPerHue / dominantColorCount)
-              );
+              variations = generateTriadicPalette(color, targetCount);
               break;
             case "analogous":
-              variations = generateAnalogousPalette(
-                color,
-                Math.floor(colorsPerHue / dominantColorCount)
-              );
+              variations = generateAnalogousPalette(color, targetCount);
               break;
             case "monochromatic":
-              variations = generateMonochromaticPalette(
-                color,
-                Math.floor(colorsPerHue / dominantColorCount)
-              );
+              variations = generateMonochromaticPalette(color, targetCount);
               break;
             default:
-              variations = generateColorVariations(
-                color,
-                Math.floor(colorsPerHue / dominantColorCount)
-              );
+              variations = generateColorVariations(color, targetCount);
           }
 
-          newPalette.push(...variations);
+          // Filter this dominant color's variations
+          const rowFiltered = variations.filter((c) => {
+            const [h, s, l] = rgbToHsl(...c);
+            return l > 0.1 && l < 0.95 && s > 0.1;
+          });
+
+          const rowThreshold = getAdaptiveThreshold(
+            rowFiltered,
+            similarityThreshold
+          );
+
+          const rowSimilarityFiltered = filterSimilarColors(
+            rowFiltered,
+            useAdaptiveThreshold ? rowThreshold : similarityThreshold
+          );
+
+          const stretchedRow = stretchPaletteRow(rowSimilarityFiltered, targetCount);
+          newPalette.push(...stretchedRow);
         });
       }
 
-      // Order by hue
-      // newPalette.sort((a, b) => {
-      //   const [hA] = rgbToHsl(...a); // Get hue (0-1)
-      //   const [hB] = rgbToHsl(...b);
-      //   return hA - hB; // Ascending hue order (red to purple)
-      // });
-
+      let finalColors = newPalette;
       if (harmonizeModel !== "none") {
-        newPalette = harmonizeColors(newPalette, harmonizeModel);
+        finalColors = harmonizeColors(finalColors, harmonizeModel);
       }
 
-      const filteredPalette = newPalette.filter((color) => {
-        const [h, s, l] = rgbToHsl(...color);
-        return l > 0.1 && l < 0.95 && s > 0.1;
-      });
-
-      const finalThreshold = getAdaptiveThreshold(
-        filteredPalette,
-        similarityThreshold
-      );
-
-      const similarityFiltered = filterSimilarColors(
-        filteredPalette,
-        useAdaptiveThreshold ? finalThreshold : similarityThreshold
-      );
-
-      /* Our original version */
-      // const similarityFiltered = filterSimilarColors(
-      //   filteredPalette,
-      //   similarityThreshold
-      // );
-
-      const uniqueColors = Array.from(
-        new Set(similarityFiltered.map(JSON.stringify))
-      ).map(JSON.parse);
-
-      setPalette(uniqueColors);
+      setPalette(finalColors);
       setIsLoading(false);
     };
     img.onerror = () => {
