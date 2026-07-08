@@ -1,0 +1,18 @@
+services:
+  s1-palette:
+    build: .
+    container_name: s1-palette
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - /var/log/caddy:/var/log/caddy
+    mem_limit: 128m
+    mem_reservation: 64m
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
